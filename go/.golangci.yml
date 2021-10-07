@@ -1,0 +1,33 @@
+run:
+  modules-download-mode: vendor
+
+linters:
+  enable:
+    - bodyclose
+    - depguard
+    - dogsled
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - exportloopref
+    - gocyclo
+    - godox
+    - gofmt
+    - goimports
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - makezero
+    - misspell
+    - nilerr
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - stylecheck
+    - tparallel
+    - wastedassign
+    - whitespace
+    - asciicheck

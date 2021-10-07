@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "urls": {
+    "small_https_download_url": "https://networkquality.example.com/api/v1/carry/small",
+    "large_https_download_url": "https://networkquality.example.com/api/v1/carry/large",
+    "https_upload_url": "https://networkquality.example.com/api/v1/carry/slurp"
+  }
+}
