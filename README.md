@@ -23,7 +23,7 @@ Download flows: 12
 Responsiveness: High (1825 RPM)
 ```
 
-**NOTE**: The `networkQuality` CLI tool will only connect to a server presenting a valid SSL certificiate. If you are using a custom CA, ensure the CA is trusted by the system.
+**NOTE**: The `networkQuality` CLI tool will only connect to a server presenting a valid SSL certificate. If you are using a custom CA, ensure the CA is trusted by the system.
 
 There are more options available to affect behavior of this utility. See the manpage of `networkQuality` for more info.
 
