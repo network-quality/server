@@ -2,7 +2,7 @@
 # Network Quality Server
 
 ## Welcome!
-The _Network Quality Server_ project was created as a place to share example servers that can used by the `networkQuality` command line tool available in macOS 12.
+The _Network Quality Server_ project was created as a place to share example servers that can be used by the `networkQuality` command line tool available in macOS 12.
 
 You can find a textual description of what a server needs to implement [here](SERVER_SPEC.md)
 
@@ -34,7 +34,7 @@ Please review [_how to contribute_](CONTRIBUTING.md) if you would like to submit
 If you have any questions you’d like to ask publicly, or ideas you’d like to discuss, please [_raise a GitHub issue_](https://github.com/network-quality/server/issues).
 ##
 ## Project Maintenance
-Project maintenance involves, but not limited to, adding clarity to incoming [_issues_](https://github.com/network-quality/server/issues) and reviewing pull requests. Project maintainers can approve and merge pull requests. Reviewing a pull request involves judging that a proposed contribution follows the project’s guidelines, as described by the [_guide to contributing_](CONTRIBUTING.md).
+Project maintenance involves, but is not limited to, adding clarity to incoming [_issues_](https://github.com/network-quality/server/issues) and reviewing pull requests. Project maintainers can approve and merge pull requests. Reviewing a pull request involves judging that a proposed contribution follows the project’s guidelines, as described by the [_guide to contributing_](CONTRIBUTING.md).
 
 Project maintainers are expected to always follow the project’s [_Code of Conduct_](CODE_OF_CONDUCT.md), and help to model it for others.
 
