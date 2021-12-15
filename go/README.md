@@ -19,7 +19,7 @@ Usage of ./networkqualityd:
   -cert-file string
     	cert to use
   -debug
-    	enable mode mode
+    	enable debug mode
   -domain string
     	domain to generate config for (default "networkquality.example.com")
   -key-file string

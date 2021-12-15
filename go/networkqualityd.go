@@ -21,7 +21,7 @@ var (
 	basePort   = flag.Int("base-port", 4043, "The base port to listen on")
 	listenAddr = flag.String("listen-addr", "localhost", "address to bind to")
 
-	debug = flag.Bool("debug", false, "enable mode mode")
+	debug = flag.Bool("debug", false, "enable debug mode")
 
 	certFilename = flag.String("cert-file", "", "cert to use")
 	keyFilename  = flag.String("key-file", "", "key to use")
