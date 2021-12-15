@@ -99,20 +99,24 @@ func (m *Server) configHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tv := tmplVars{
-		SmallDownloadURL: m.generateSmallDownloadURL(),
-		LargeDownloadURL: m.generateLargeDownloadURL(),
-		UploadURL:        m.generateUploadURL(),
-	}
+	// Only generate the configuration from the json if we need to.
+	if m.generatedConfig == nil {
+		tv := tmplVars{
+			SmallDownloadURL: m.generateSmallDownloadURL(),
+			LargeDownloadURL: m.generateLargeDownloadURL(),
+			UploadURL:        m.generateUploadURL(),
+		}
 
-	var b bytes.Buffer
-	if err := m.template.Execute(&b, tv); err != nil {
-		log.Printf("Error rendering config: %s", err)
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
+		var b bytes.Buffer
+		if err := m.template.Execute(&b, tv); err != nil {
+			log.Printf("Error rendering config: %s", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		m.generatedConfig = &b
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, err := w.Write(b.Bytes())
+	_, err := w.Write(m.generatedConfig.Bytes())
 	if err != nil {
 		log.Printf("could note write response: %s", err)
 	}
@@ -138,9 +142,10 @@ type tmplVars struct {
 }
 
 type Server struct {
-	domain     string
-	publicName string
-	template   *template.Template
+	domain          string
+	publicName      string
+	template        *template.Template
+	generatedConfig *bytes.Buffer
 }
 
 func smallHandler(w http.ResponseWriter, r *http.Request) {
