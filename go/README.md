@@ -14,13 +14,13 @@
 
 ```
 Usage of ./networkqualityd:
-  -base-port int
+  -config-port int
     	The base port to listen on (default 4043)
   -cert-file string
     	cert to use
   -debug
     	enable debug mode
-  -domain string
+  -config-name string
     	domain to generate config for (default "networkquality.example.com")
   -key-file string
     	key to use

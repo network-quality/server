@@ -18,7 +18,8 @@ import (
 )
 
 var (
-	basePort   = flag.Int("base-port", 4043, "The base port to listen on")
+	configPort = flag.Int("config-port", 4043, "The port to listen on for generating config responses")
+	publicPort = flag.Int("public-port", 4043, "The port to listen on for measurement accesses")
 	listenAddr = flag.String("listen-addr", "localhost", "address to bind to")
 
 	debug = flag.Bool("debug", false, "enable debug mode")
@@ -26,8 +27,8 @@ var (
 	certFilename = flag.String("cert-file", "", "cert to use")
 	keyFilename  = flag.String("key-file", "", "key to use")
 
-	domainName   = flag.String("domain", "networkquality.example.com", "domain to generate config for")
-	publicName   = flag.String("public-name", "", "host to generate config for")
+	configName   = flag.String("config-name", "networkquality.example.com", "domain to generate config for")
+	publicName   = flag.String("public-name", "", "host to generate config for (same as -config-name if not specified)")
 	templateName = flag.String("template", "config.json.in", "template json config")
 )
 
@@ -61,10 +62,12 @@ func main() {
 	}
 
 	if len(*publicName) == 0 {
-		*publicName = fmt.Sprintf("%s:%d", *domainName, *basePort)
+		*publicName = *configName
 	}
 
-	m := &Server{domain: *domainName, publicName: *publicName, template: tmpl}
+	publicHostPort := fmt.Sprintf("%s:%d", *publicName, *publicPort)
+
+	m := &Server{configName: *configName, publicHostPort: publicHostPort, template: tmpl}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/config", m.configHandler)
@@ -74,16 +77,18 @@ func main() {
 
 	if *debug {
 		go func() {
-			log.Println(http.ListenAndServe("127.0.0.1:9090", nil))
+			debugListenPort := 9090
+			debugListenAddr := fmt.Sprintf("%s:%d", *listenAddr, debugListenPort)
+			log.Println(http.ListenAndServe(debugListenAddr, nil))
 		}()
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	listenAddr := fmt.Sprintf("%s:%d", *listenAddr, *basePort)
+	listenAddr := fmt.Sprintf("%s:%d", *listenAddr, *configPort)
 	go func(listenAddr string) {
-		log.Printf("Network Quality URL: https://%s:%d/config", *domainName, *basePort)
+		log.Printf("Network Quality URL: https://%s:%d/config", *configName, *configPort)
 		if err := http.ListenAndServeTLS(listenAddr, *certFilename, *keyFilename, mux); err != nil {
 			log.Fatal(err)
 		}
@@ -123,15 +128,15 @@ func (m *Server) configHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Server) generateSmallDownloadURL() string {
-	return fmt.Sprintf("https://%s/small", m.publicName)
+	return fmt.Sprintf("https://%s/small", m.publicHostPort)
 }
 
 func (m *Server) generateLargeDownloadURL() string {
-	return fmt.Sprintf("https://%s/large", m.publicName)
+	return fmt.Sprintf("https://%s/large", m.publicHostPort)
 }
 
 func (m *Server) generateUploadURL() string {
-	return fmt.Sprintf("https://%s/slurp", m.publicName)
+	return fmt.Sprintf("https://%s/slurp", m.publicHostPort)
 }
 
 type tmplVars struct {
@@ -142,8 +147,8 @@ type tmplVars struct {
 }
 
 type Server struct {
-	domain          string
-	publicName      string
+	configName      string
+	publicHostPort  string
 	template        *template.Template
 	generatedConfig *bytes.Buffer
 }
