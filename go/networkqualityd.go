@@ -32,9 +32,9 @@ var (
 )
 
 const (
-	smallContentLength = 1
-	largeContentLength = 4 * 1024 * 1024 * 1024
-	chunkSize          = 64 * 1024
+	smallContentLength int64 = 1
+	largeContentLength int64 = 4 * 1024 * 1024 * 1024
+	chunkSize          int64 = 64 * 1024
 )
 
 var (
@@ -154,7 +154,7 @@ func smallHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Length", strconv.Itoa(smallContentLength))
+	w.Header().Set("Content-Length", strconv.FormatInt(smallContentLength, 10))
 
 	if err := chunkedBodyWriter(w, smallContentLength); err != nil {
 		log.Printf("Error writing content of length %d: %s", smallContentLength, err)
@@ -167,20 +167,20 @@ func largeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Length", strconv.Itoa(largeContentLength))
+	w.Header().Set("Content-Length", strconv.FormatInt(largeContentLength, 10))
 
 	if err := chunkedBodyWriter(w, largeContentLength); err != nil {
 		log.Printf("Error writing content of length %d: %s", largeContentLength, err)
 	}
 }
 
-func chunkedBodyWriter(w http.ResponseWriter, contentLength int) error {
+func chunkedBodyWriter(w http.ResponseWriter, contentLength int64) error {
 	w.WriteHeader(http.StatusOK)
 
 	n := contentLength
 	for n > 0 {
-		if n >= len(buffed) {
-			n -= len(buffed)
+		if n >= chunkSize {
+			n -= chunkSize
 			if _, err := w.Write(buffed); err != nil {
 				return err
 			}
