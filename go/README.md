@@ -49,3 +49,56 @@ Upload flows: 12
 Download flows: 12
 Responsiveness: Medium (829 RPM)
 ```
+
+### Docker
+
+The server can be run in a docker container. The `Dockerfile` in this repository
+will generate a container that can run the server. To build the container,
+simply execute
+
+```
+docker build -t rpmserver .
+```
+
+The command will generate a container image named `rpmserver`.
+
+In order to run the resulting container, you will have to either accept some
+default values or provide configuration. The server requires access
+to a public/private key for its SSL connections, and the `Dockerfile` does not
+specify that they be copied in to the image. In other words, you will have to configure a
+shared volume between the executing container and the host, where that volume
+contains the key files.
+
+The container executing the RPM server will also need to have a port map
+established. You will have to publish the port on which the server in the
+container is listening to the host.
+
+Assuming that you use the default values specified in the `Dockerfile`, you can
+run the container using
+
+```
+docker run --env-file docker_config.env  -v $(pwd)/live:/live -p 4043:4043 -p rpmserver
+```
+
+where there exists a directory `$(pwd)/live` that contains two files named
+`fullchain.pem` and `privkey.pem` that hold the public and private keys for
+the SSL connections, respectively.
+
+You can use environment variables to configure any of the `networkqualityd` command-line options.
+
+| Command-line option name | Environment variable name |
+| -- | -- |
+| `-cert-file` | `cert_file` |
+| `-key-file` | `key_file` |
+| `-base-port` | `base_port` |
+| `-domain` | `domain` |
+| `-listen-addr` | `listen_addr` |
+| `-public-name` | `public_name` |
+| `-template` | `template` |
+| `-debug` | *see below* |
+
+If you want to configure whether the server runs in debug mode, simply set the `debug` environment variable to `-debug`. If you enable debugging, you will also need to create a map between a port on the host and port 9090 on the container (e.g., `-p 9090:9090`).
+
+There is `docker_config.env` in this directory that you can
+use to make passing those configuration options to the container
+easier. To use this file, add the `--env-file docker_config.env` arguments to the `docker run` command.
