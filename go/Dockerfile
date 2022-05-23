@@ -22,11 +22,11 @@ RUN go build -o networkqualityd ./networkqualityd.go
 ENV cert_file=/live/fullchain.pem
 ENV key_file=/live/privkey.pem
 ENV public_name=networkquality.example.com
-ENV domain=networkquality.example.com
-ENV base_port=4043
+ENV config_name=networkquality.example.com
+ENV config_port=4043
 ENV listen_addr=0.0.0.0
 ENV template=config.json.in
 
 # By default, this is what the container will run when `docker run`
 # is issued by a user.
-CMD /server/networkqualityd -cert-file ${cert_file} -key-file ${key_file} -public-name ${public_name} -base-port ${base_port} -domain ${domain} ${debug} -listen-addr ${listen_addr} -template ${template}
+CMD /server/networkqualityd -cert-file ${cert_file} -key-file ${key_file} -public-name ${public_name} -config-port ${config_port} -config-name ${config_name} ${debug} -listen-addr ${listen_addr} -template ${template}

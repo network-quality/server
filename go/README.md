@@ -90,8 +90,8 @@ You can use environment variables to configure any of the `networkqualityd` comm
 | -- | -- |
 | `-cert-file` | `cert_file` |
 | `-key-file` | `key_file` |
-| `-base-port` | `base_port` |
-| `-domain` | `domain` |
+| `-config-port` | `config_port` |
+| `-config-name` | `config_name` |
 | `-listen-addr` | `listen_addr` |
 | `-public-name` | `public_name` |
 | `-template` | `template` |
