@@ -49,6 +49,13 @@ func init() {
 	}
 }
 
+// setCors makes it possible for wasm clients to connect to the server
+// from a webclient that is not hosted on the same domain.
+func setCors(h http.Header) {
+	h.Set("Access-Control-Allow-Origin", "*")
+	h.Set("Access-Control-Allow-Headers", "*")
+}
+
 func main() {
 	flag.Parse()
 
@@ -121,9 +128,10 @@ func (m *Server) configHandler(w http.ResponseWriter, r *http.Request) {
 		m.generatedConfig = &b
 	}
 	w.Header().Set("Content-Type", "application/json")
+	setCors(w.Header())
 	_, err := w.Write(m.generatedConfig.Bytes())
 	if err != nil {
-		log.Printf("could note write response: %s", err)
+		log.Printf("could not write response: %s", err)
 	}
 }
 
@@ -160,6 +168,8 @@ func smallHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(smallContentLength, 10))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	setCors(w.Header())
 
 	if err := chunkedBodyWriter(w, smallContentLength); err != nil {
 		log.Printf("Error writing content of length %d: %s", smallContentLength, err)
@@ -173,6 +183,8 @@ func largeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(largeContentLength, 10))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	setCors(w.Header())
 
 	if err := chunkedBodyWriter(w, largeContentLength); err != nil {
 		log.Printf("Error writing content of length %d: %s", largeContentLength, err)
@@ -212,6 +224,8 @@ func setNoPublicCache(h http.Header) {
 // slurpHandler reads the post request and returns JSON with bytes
 // read and how long it took
 func slurpHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/octet-stream")
+	setCors((w.Header()))
 	setNoPublicCache(w.Header())
 
 	t := time.Now()
