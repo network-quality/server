@@ -29,6 +29,7 @@ var (
 
 	configName   = flag.String("config-name", "networkquality.example.com", "domain to generate config for")
 	publicName   = flag.String("public-name", "", "host to generate config for (same as -config-name if not specified)")
+	contextPath  = flag.String("context-path", "", "context-path if behind a reverse-proxy")
 	templateName = flag.String("template", "config.json.in", "template json config")
 )
 
@@ -74,13 +75,13 @@ func main() {
 
 	publicHostPort := fmt.Sprintf("%s:%d", *publicName, *publicPort)
 
-	m := &Server{configName: *configName, publicHostPort: publicHostPort, template: tmpl}
+	m := &Server{configName: *configName, publicHostPort: publicHostPort, contextPath: *contextPath, template: tmpl}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/config", m.configHandler)
-	mux.HandleFunc("/small", smallHandler)
-	mux.HandleFunc("/large", largeHandler)
-	mux.HandleFunc("/slurp", slurpHandler)
+	mux.HandleFunc(m.contextPath+"/config", m.configHandler)
+	mux.HandleFunc(m.contextPath+"/small", smallHandler)
+	mux.HandleFunc(m.contextPath+"/large", largeHandler)
+	mux.HandleFunc(m.contextPath+"/slurp", slurpHandler)
 
 	if *debug {
 		go func() {
@@ -95,7 +96,7 @@ func main() {
 
 	listenAddr := fmt.Sprintf("%s:%d", *listenAddr, *configPort)
 	go func(listenAddr string) {
-		log.Printf("Network Quality URL: https://%s:%d/config", *configName, *configPort)
+		log.Printf("Network Quality URL: https://%s:%d%s/config", *configName, *configPort, *contextPath)
 		if err := http.ListenAndServeTLS(listenAddr, *certFilename, *keyFilename, mux); err != nil {
 			log.Fatal(err)
 		}
@@ -136,15 +137,15 @@ func (m *Server) configHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Server) generateSmallDownloadURL() string {
-	return fmt.Sprintf("https://%s/small", m.publicHostPort)
+	return fmt.Sprintf("https://%s%s/small", m.publicHostPort, m.contextPath)
 }
 
 func (m *Server) generateLargeDownloadURL() string {
-	return fmt.Sprintf("https://%s/large", m.publicHostPort)
+	return fmt.Sprintf("https://%s%s/large", m.publicHostPort, m.contextPath)
 }
 
 func (m *Server) generateUploadURL() string {
-	return fmt.Sprintf("https://%s/slurp", m.publicHostPort)
+	return fmt.Sprintf("https://%s%s/slurp", m.publicHostPort, m.contextPath)
 }
 
 type tmplVars struct {
@@ -157,6 +158,7 @@ type tmplVars struct {
 type Server struct {
 	configName      string
 	publicHostPort  string
+	contextPath     string
 	template        *template.Template
 	generatedConfig *bytes.Buffer
 }
