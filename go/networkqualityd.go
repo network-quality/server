@@ -39,7 +39,8 @@ const (
 )
 
 var (
-	buffed []byte
+	buffed    []byte
+	plainMode bool = false
 )
 
 func init() {
@@ -65,7 +66,8 @@ func main() {
 	}
 
 	if len(*certFilename) == 0 || len(*keyFilename) == 0 {
-		log.Fatal("--cert-file and --key-file must be specified")
+		log.Println("--cert-file or --key-file unspecified, running in plain mode")
+		plainMode = true
 	}
 
 	if len(*publicName) == 0 {
@@ -96,8 +98,10 @@ func main() {
 	listenAddr := fmt.Sprintf("%s:%d", *listenAddr, *configPort)
 	go func(listenAddr string) {
 		log.Printf("Network Quality URL: https://%s:%d/config", *configName, *configPort)
-		if err := http.ListenAndServeTLS(listenAddr, *certFilename, *keyFilename, mux); err != nil {
-			log.Fatal(err)
+		if plainMode == true {
+			log.Fatal(http.ListenAndServe(listenAddr, mux))
+		} else {
+			log.Fatal(http.ListenAndServeTLS(listenAddr, *certFilename, *keyFilename, mux))
 		}
 		wg.Done()
 	}(listenAddr)
