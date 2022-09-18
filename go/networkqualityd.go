@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,12 +10,19 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"sync"
 	"time"
 
+	// Do *not* remove this import. Per https://pkg.go.dev/net/http/pprof:
+	// The package is typically only imported for the side effect of registering
+	// its HTTP handlers. The handled paths all begin with /debug/pprof/.
 	_ "net/http/pprof"
+	// See -debug for how we use it.
 )
 
 var (
@@ -23,6 +31,8 @@ var (
 	listenAddr = flag.String("listen-addr", "localhost", "address to bind to")
 
 	debug = flag.Bool("debug", false, "enable debug mode")
+
+	announce = flag.Bool("announce", false, "announce this server using DNS-SD")
 
 	certFilename = flag.String("cert-file", "", "cert to use")
 	keyFilename  = flag.String("key-file", "", "key to use")
@@ -60,6 +70,9 @@ func setCors(h http.Header) {
 func main() {
 	flag.Parse()
 
+	operatingCtx, operatingCtxCancel := context.WithCancel(context.Background())
+	defer operatingCtxCancel()
+
 	tmpl, err := template.ParseFiles(*templateName)
 	if err != nil {
 		log.Fatal(err)
@@ -91,17 +104,54 @@ func main() {
 		}()
 	}
 
+	if *announce {
+		ips := make([]net.IP, 0)
+		// The user may give us a hostname (rather than an address to listen on). In order to
+		// handle this situation, we will use DNS to convert it to an IP. As a result, we may
+		// get back more than one address -- handle that!
+		if addresses, lookupErr := net.LookupHost(*listenAddr); lookupErr == nil {
+			for _, addr := range addresses {
+				if parsedAddr := net.ParseIP(addr); parsedAddr != nil {
+					ips = append(ips, parsedAddr)
+				}
+			}
+		}
+		if announceResponder, announceHandle, announceErr := configureAnnouncer(ips, *configName, *configPort); announceErr == nil {
+			defer announceResponder.Remove(announceHandle)
+			go announceResponder.Respond(operatingCtx)
+		} else {
+			log.Printf("Warning: Could not announce the server instance: %v.\n", announceErr)
+		}
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	listenAddr := fmt.Sprintf("%s:%d", *listenAddr, *configPort)
-	go func(listenAddr string) {
-		log.Printf("Network Quality URL: https://%s:%d%s/config", *configName, *configPort, *contextPath)
-		if err := http.ListenAndServeTLS(listenAddr, *certFilename, *keyFilename, mux); err != nil {
+	server := &http.Server{}
+	server.Addr = fmt.Sprintf("%s:%d", *listenAddr, *configPort)
+	server.Handler = mux
+
+	go func(server *http.Server, configName string, configPort int, configContextPath string) {
+		log.Printf("Network Quality URL: https://%s:%d%s/config", configName, configPort, configContextPath)
+		if err := server.ListenAndServeTLS(*certFilename, *keyFilename); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 		wg.Done()
-	}(listenAddr)
+	}(server, *configName, *configPort, *contextPath)
+
+	// The user can stop the server with SIGINT
+	signalChannel := make(chan os.Signal, 1)   // make the channel buffered, per documentation.
+	signal.Notify(signalChannel, os.Interrupt) // only Interrupt is guaranteed to exist on all platforms.
+
+SignalLoop:
+	for {
+		select {
+		case <-signalChannel:
+			log.Printf("Shutting down the server ...\n")
+			server.Shutdown(operatingCtx)
+			break SignalLoop
+		}
+	}
 
 	wg.Wait()
 }
