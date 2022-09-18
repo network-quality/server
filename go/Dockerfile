@@ -16,7 +16,7 @@ WORKDIR /server
 
 # Now build.
 RUN go mod download
-RUN go build -o networkqualityd ./networkqualityd.go 
+RUN go build -o networkqualityd ./networkqualityd.go ./announcer.go
 
 # Configure default values that a user can override.
 ENV cert_file=/live/fullchain.pem

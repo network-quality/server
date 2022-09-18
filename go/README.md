@@ -5,8 +5,8 @@
 
 #### Using the command line
 
-1. `go build networkqualityd.go`
-1. Use the produced `networkQualityd` binary from the command line
+1. `go build networkqualityd.go announcer.go`
+1. Use the produced `networkqualityd` binary from the command line
 
 ### Running
 
