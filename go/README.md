@@ -5,7 +5,7 @@
 
 #### Using the command line
 
-1. `go build networkqualityd.go announcer.go`
+1. `go build -o networkqualityd .`
 1. Use the produced `networkqualityd` binary from the command line
 
 ### Running
@@ -14,22 +14,40 @@
 
 ```
 Usage of ./networkqualityd:
-  -config-port int
-    	The base port to listen on (default 4043)
+  -announce
+        announce this server using DNS-SD
   -cert-file string
-    	cert to use
-  -debug
-    	enable debug mode
+        cert to use
   -config-name string
-    	domain to generate config for (default "networkquality.example.com")
+        domain to generate config for (default "networkquality.example.com")
+  -context-path string
+        context-path if behind a reverse-proxy
+  -debug
+        enable debug mode
+  -enable-cors
+        enable CORS headers
+  -enable-h2c
+        enable h2c (non-TLS http/2 prior knowledge) mode
+  -enable-http2
+        enable HTTP/2 (default true)
+  -enable-http3
+        enable HTTP/3
+  -insecure-public-port int
+        The port to listen on for HTTP measurement accesses
   -key-file string
-    	key to use
+        key to use
   -listen-addr string
-    	address to bind to (default "localhost")
+        address to bind to (default "localhost")
   -public-name string
-    	host to generate config for
+        host to generate config for (same as -config-name if not specified)
+  -public-port int
+        The port to listen on for HTTPS/H2C/HTTP3 measurement accesses (default 4043)
+  -socket-send-buffer-size uint
+        The size of the socket send buffer via TCP_NOTSENT_LOWAT. Zero/unset means to leave unset
   -template string
-    	template json config (default "config.json.in")
+        template json config (default "config.json.in")
+  -tos string
+        set TOS for listening socket (default "0")
 ```
 
 #### Example run:
@@ -90,7 +108,7 @@ You can use environment variables to configure any of the `networkqualityd` comm
 | -- | -- |
 | `-cert-file` | `cert_file` |
 | `-key-file` | `key_file` |
-| `-config-port` | `config_port` |
+| `-public-port` | `public_port` |
 | `-config-name` | `config_name` |
 | `-listen-addr` | `listen_addr` |
 | `-public-name` | `public_name` |
