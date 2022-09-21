@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/brutella/dnssd"
@@ -49,7 +50,7 @@ InterfacesLoop:
 		}
 	}
 	cfg := dnssd.Config{
-		Name:   "RPM Test Server",
+		Name:   fmt.Sprintf("RPM Test Server(%d)", port),
 		Type:   "_nq._tcp",
 		Domain: "local",
 		Host:   hostName,
@@ -57,6 +58,7 @@ InterfacesLoop:
 		Ifaces: interfaces,
 		Port:   port,
 	}
+
 	dns_service, dns_service_err := dnssd.NewService(cfg)
 	if dns_service_err != nil {
 		return nil, nil, dns_service_err
