@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -132,7 +131,6 @@ func main() {
 		if *enableHTTP2 {
 			cfg.NextProtos = []string{"h2"}
 		}
-
 	}
 
 	if len(*publicName) == 0 {
@@ -297,10 +295,14 @@ func main() {
 				log.Fatalf("Could not announce the server instance: %v", err)
 			}
 
-			go announceResponder.Respond(operatingCtx)
+			go func() {
+				if err := announceResponder.Respond(operatingCtx); err != nil {
+					log.Fatal(err)
+				}
+			}()
+
 			announceShutdowners = append(announceShutdowners, func() { announceResponder.Remove(announceHandle) })
 		}
-
 	}
 
 	// The user can stop the server with SIGINT
@@ -472,7 +474,7 @@ func (h *handlers) slurpHandler(w http.ResponseWriter, r *http.Request) {
 		setCors((w.Header()))
 	}
 
-	_, err := io.Copy(ioutil.Discard, r.Body)
+	_, err := io.Copy(io.Discard, r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
