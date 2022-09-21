@@ -15,7 +15,7 @@ func getNetInterfaces() []net.Interface {
 }
 
 func getInterfaceIPs(iface net.Interface) []net.IP {
-	if addrs, addrs_err := iface.Addrs(); addrs_err == nil {
+	if addrs, err := iface.Addrs(); err == nil {
 		result := make([]net.IP, 0)
 		for _, addr := range addrs {
 			if ip, _, err := net.ParseCIDR(addr.String()); err == nil {
@@ -36,13 +36,13 @@ func configureAnnouncer(ips []net.IP, hostName string, port int) (dnssd.Responde
 InterfacesLoop:
 	for _, iface := range getNetInterfaces() {
 		// Go through all the IPs associated with each interface.
-		for _, ifaceIp := range getInterfaceIPs(iface) {
+		for _, ifaceIP := range getInterfaceIPs(iface) {
 			// Go through all the IPs that we are broadcasting on.
 			for _, ip := range ips {
 				// If there is an intersection, then add the interface to the list we will advertise on
 				// and then continue!
 
-				if ifaceIp.Equal(ip) {
+				if ifaceIP.Equal(ip) {
 					interfaces = append(interfaces, iface.Name)
 					continue InterfacesLoop
 				}
@@ -59,18 +59,18 @@ InterfacesLoop:
 		Port:   port,
 	}
 
-	dns_service, dns_service_err := dnssd.NewService(cfg)
-	if dns_service_err != nil {
-		return nil, nil, dns_service_err
+	dnsService, err := dnssd.NewService(cfg)
+	if err != nil {
+		return nil, nil, err
 	}
-	dns_responder, dns_responder_err := dnssd.NewResponder()
-	if dns_responder_err != nil {
-		return nil, nil, dns_responder_err
+	dnsResponder, err := dnssd.NewResponder()
+	if err != nil {
+		return nil, nil, err
 	}
-	dns_service_handle, dns_service_handle_err := dns_responder.Add(dns_service)
-	if dns_service_handle_err != nil {
-		return nil, nil, dns_service_handle_err
+	dnsServiceHandle, err := dnsResponder.Add(dnsService)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return dns_responder, dns_service_handle, nil
+	return dnsResponder, dnsServiceHandle, nil
 }
