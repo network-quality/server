@@ -1,7 +1,7 @@
 
 ## A Go implementation of the Network Quality Server
 
-### Building (requires Go 1.13+)
+### Building (requires Go 1.17+)
 
 #### Using the command line
 
