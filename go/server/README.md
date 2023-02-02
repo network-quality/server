@@ -22,6 +22,8 @@ Usage of ./networkqualityd:
         domain to generate config for (default "networkquality.example.com")
   -context-path string
         context-path if behind a reverse-proxy
+  -create-cert
+        generate self-signed certs
   -debug
         enable debug mode
   -enable-cors
@@ -48,6 +50,8 @@ Usage of ./networkqualityd:
         template json config (default "config.json.in")
   -tos string
         set TOS for listening socket (default "0")
+  -version
+        Show version
 ```
 
 #### Example run:

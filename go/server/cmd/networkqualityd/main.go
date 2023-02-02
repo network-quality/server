@@ -1,23 +1,28 @@
+// Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
+
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"strconv"
 	"sync"
+
+	"github.com/icio/mkcert"
+	nqserver "github.com/network-quality/server/go/server"
 
 	// Do *not* remove this import. Per https://pkg.go.dev/net/http/pprof:
 	// The package is typically only imported for the side effect of registering
@@ -25,8 +30,8 @@ import (
 	// See -debug for how we use it.
 	_ "net/http/pprof"
 
-	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -38,11 +43,13 @@ var (
 	listenAddr = flag.String("listen-addr", "localhost", "address to bind to")
 
 	announce    = flag.Bool("announce", false, "announce this server using DNS-SD")
+	createCert  = flag.Bool("create-cert", false, "generate self-signed certs")
 	debug       = flag.Bool("debug", false, "enable debug mode")
 	enableCORS  = flag.Bool("enable-cors", false, "enable CORS headers")
 	enableH2C   = flag.Bool("enable-h2c", false, "enable h2c (non-TLS http/2 prior knowledge) mode")
 	enableHTTP2 = flag.Bool("enable-http2", true, "enable HTTP/2")
 	enableHTTP3 = flag.Bool("enable-http3", false, "enable HTTP/3")
+	showVersion = flag.Bool("version", false, "Show version")
 
 	socketSendBuffer = flag.Uint("socket-send-buffer-size", 0, "The size of the socket send buffer via TCP_NOTSENT_LOWAT. Zero/unset means to leave unset")
 
@@ -57,47 +64,16 @@ var (
 )
 
 const (
-	smallContentLength int64 = 1
-	largeContentLength int64 = 32 * 1024 * 1024 * 1024
-	chunkSize          int64 = 64 * 1024
-
 	defaultInsecurePublicPort = 4080
 )
 
-var (
-	buffed []byte
-)
-
-func init() {
-	buffed = make([]byte, chunkSize)
-	for i := range buffed {
-		buffed[i] = 'x'
-	}
-}
-
-// setCors makes it possible for wasm clients to connect to the server
-// from a webclient that is not hosted on the same domain.
-func setCors(h http.Header) {
-	h.Set("Access-Control-Allow-Origin", "*")
-	h.Set("Access-Control-Allow-Headers", "*")
-}
-
-type handlers struct {
-	enableCORS bool
-}
-
-// BulkHandlers returns path, handler tuples with the provided prefix.
-func BulkHandlers(prefix string, enableCORS bool) map[string]http.HandlerFunc {
-	h := &handlers{enableCORS: enableCORS}
-	return map[string]http.HandlerFunc{
-		prefix + "/small": h.smallHandler,
-		prefix + "/large": h.largeHandler,
-		prefix + "/slurp": h.slurpHandler,
-	}
-}
-
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Fprintf(os.Stdout, "networkqualityd %s\n", nqserver.GitVersion)
+		os.Exit(0)
+	}
 
 	tosTemp, err := strconv.ParseUint(*tosString, 10, 8)
 	if err != nil {
@@ -118,9 +94,42 @@ func main() {
 		certSpecified = true
 	}
 
+	if *createCert {
+		if certSpecified {
+			log.Fatal("--cert-file and --key-file cannot be used with --create-cert")
+		}
+
+		certSpecified = true
+
+		dir, err := os.MkdirTemp("", "nqd")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer os.RemoveAll(dir)
+
+		cert, err := mkcert.Exec(
+			mkcert.Domains(*configName),
+			// RequireTrusted(true) tells Exec to return an error if the CA isn't
+			// in the trust stores.
+			mkcert.RequireTrusted(false),
+			// CertFile and KeyFile override the default behaviour of generating
+			// the keys in the local directory.
+			mkcert.CertFile(filepath.Join(dir, "cert.pem")),
+			mkcert.KeyFile(filepath.Join(dir, "key.pem")),
+		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		*certFilename = cert.File
+		*keyFilename = cert.KeyFile
+	}
+
 	var cfg *tls.Config
 	if certSpecified {
-		cfg = &tls.Config{}
+		cfg = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
 
 		cfg.Certificates = make([]tls.Certificate, 1)
 		cfg.Certificates[0], err = tls.LoadX509KeyPair(*certFilename, *keyFilename)
@@ -152,7 +161,15 @@ func main() {
 		go func() {
 			debugListenPort := 9090
 			debugListenAddr := fmt.Sprintf("%s:%d", *listenAddr, debugListenPort)
-			log.Println(http.ListenAndServe(debugListenAddr, nil))
+			server := &http.Server{
+				Addr:              debugListenAddr,
+				ReadHeaderTimeout: 3 * time.Second,
+			}
+
+			err := server.ListenAndServe()
+			if err != nil {
+				log.Fatal(err)
+			}
 		}()
 	}
 
@@ -176,6 +193,7 @@ func main() {
 		}
 	}
 
+	var mut sync.Mutex
 	for port, scheme := range portScheme {
 		var hostPort string
 		if port == 80 || port == 443 {
@@ -184,17 +202,28 @@ func main() {
 			hostPort = fmt.Sprintf("%s:%d", *publicName, port)
 		}
 
-		m := &Server{
-			publicHostPort: hostPort,
-			template:       tmpl,
-			enableCORS:     *enableCORS,
-			contextPath:    *contextPath,
-			scheme:         scheme,
+		m := &nqserver.Server{
+			PublicHostPort: hostPort,
+			PublicPort:     port,
+			Template:       tmpl,
+			EnableCORS:     *enableCORS,
+			ContextPath:    *contextPath,
+			Scheme:         scheme,
+		}
+
+		if *debug {
+			go m.PrintStats()
+		}
+
+		if scheme == "https" && *enableHTTP3 {
+			m.EnableH3AltSvc = true
 		}
 
 		mux := http.NewServeMux()
-		mux.HandleFunc(m.contextPath+"/config", m.configHandler)
-		for pattern, handler := range BulkHandlers(m.contextPath, *enableCORS) {
+		mux.HandleFunc(m.ContextPath+"/", m.ConfigHandler)       // NOTE: This will go away
+		mux.HandleFunc(m.ContextPath+"/config", m.ConfigHandler) // NOTE: This will go away
+		mux.HandleFunc(m.ContextPath+"/.well-known/nq", m.ConfigHandler)
+		for pattern, handler := range nqserver.CountingBulkHandlers(m.ContextPath, *enableCORS, &m.BytesServed, &m.BytesReceived) {
 			mux.HandleFunc(pattern, handler)
 		}
 
@@ -231,14 +260,19 @@ func main() {
 
 		mynl := nl
 
-		log.Printf("Network Quality URL: %s://%s:%d%s/config", scheme, *configName, port, *contextPath)
+		if scheme == "https" {
+			log.Printf("Network Quality URL: %s://%s:%d%s/.well-known/nq", scheme, *configName, port, *contextPath)
+		}
 
 		go func(scheme string, nl net.Listener, port int) {
 			if *enableH2C {
 				server := &http.Server{
-					Handler: h2c.NewHandler(mux, &http2.Server{}),
+					Handler:           h2c.NewHandler(mux, &http2.Server{}),
+					ReadHeaderTimeout: 3 * time.Second,
 				}
+				mut.Lock()
 				servers = append(servers, server)
+				mut.Unlock()
 				if err := server.Serve(nl); err != nil {
 					log.Fatal(err)
 				}
@@ -261,8 +295,10 @@ func main() {
 							wg.Done()
 						}()
 					}
+
 					server := &http.Server{
-						Handler: mux,
+						Handler:           mux,
+						ReadHeaderTimeout: 3 * time.Second,
 					}
 
 					if *enableHTTP2 {
@@ -271,16 +307,21 @@ func main() {
 							log.Fatal(err)
 						}
 					}
+					mut.Lock()
 					servers = append(servers, server)
+					mut.Unlock()
 
 					if err := server.Serve(nl); !errors.Is(err, http.ErrServerClosed) {
 						log.Fatalf("FATAL: %q", err)
 					}
 				} else {
 					server := &http.Server{
-						Handler: mux,
+						Handler:           mux,
+						ReadHeaderTimeout: 3 * time.Second,
 					}
+					mut.Lock()
 					servers = append(servers, server)
+					mut.Unlock()
 					if err := server.Serve(nl); !errors.Is(err, http.ErrServerClosed) {
 						log.Fatalf("FATAL: %q", err)
 					}
@@ -289,7 +330,8 @@ func main() {
 			wg.Done()
 		}(scheme, mynl, port)
 
-		if *announce {
+		// Setup announcer for https configuration port
+		if *announce && scheme == "https" {
 			announceResponder, announceHandle, err := configureAnnouncer(ips, *configName, port)
 			if err != nil {
 				log.Fatalf("Could not announce the server instance: %v", err)
@@ -335,169 +377,4 @@ func main() {
 		case <-shutdownDone:
 		}
 	}
-}
-
-func (m *Server) configHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Only generate the configuration from the json if we need to.
-	if m.generatedConfig == nil {
-		tv := struct {
-			SmallDownloadURL string
-			LargeDownloadURL string
-			UploadURL        string
-		}{
-			SmallDownloadURL: m.generateSmallDownloadURL(),
-			LargeDownloadURL: m.generateLargeDownloadURL(),
-			UploadURL:        m.generateUploadURL(),
-		}
-
-		var b bytes.Buffer
-		if err := m.template.Execute(&b, tv); err != nil {
-			log.Printf("Error rendering config: %s", err)
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		m.generatedConfig = &b
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if m.enableCORS {
-		setCors(w.Header())
-	}
-
-	_, err := w.Write(m.generatedConfig.Bytes())
-	if err != nil {
-		log.Printf("could not write response: %s", err)
-	}
-}
-
-func (m *Server) generateSmallDownloadURL() string {
-	return fmt.Sprintf("%s://%s%s/small", m.scheme, m.publicHostPort, m.contextPath)
-}
-
-func (m *Server) generateLargeDownloadURL() string {
-	return fmt.Sprintf("%s://%s%s/large", m.scheme, m.publicHostPort, m.contextPath)
-}
-
-func (m *Server) generateUploadURL() string {
-	return fmt.Sprintf("%s://%s%s/slurp", m.scheme, m.publicHostPort, m.contextPath)
-}
-
-// A Server defines parameters for running a network quality server.
-type Server struct {
-	publicHostPort  string
-	contextPath     string
-	scheme          string
-	template        *template.Template
-	generatedConfig *bytes.Buffer
-	enableCORS      bool
-}
-
-func (h *handlers) smallHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Length", strconv.FormatInt(smallContentLength, 10))
-	w.Header().Set("Content-Type", "application/octet-stream")
-
-	if h.enableCORS {
-		setCors(w.Header())
-	}
-
-	if err := chunkedBodyWriter(w, smallContentLength); !ignorableError(err) {
-		log.Printf("Error writing content of length %d: %s", smallContentLength, err)
-	}
-}
-
-func (h *handlers) largeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Length", strconv.FormatInt(largeContentLength, 10))
-	w.Header().Set("Content-Type", "application/octet-stream")
-
-	if h.enableCORS {
-		setCors(w.Header())
-	}
-
-	if err := chunkedBodyWriter(w, largeContentLength); !ignorableError(err) {
-		log.Printf("Error writing content of length %d: %s", largeContentLength, err)
-	}
-}
-
-func chunkedBodyWriter(w http.ResponseWriter, contentLength int64) error {
-	w.WriteHeader(http.StatusOK)
-
-	n := contentLength
-	for n > 0 {
-		if n >= chunkSize {
-			n -= chunkSize
-			if _, err := w.Write(buffed); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if _, err := w.Write(buffed[:n]); err != nil {
-			return err
-		}
-		break
-	}
-
-	return nil
-}
-
-// setNoPublicCache tells the proxy to cache the content and the user
-// that it can't be cached. It requires the proxy cache to be configured
-// to use the Proxy-Cache-Control header
-func setNoPublicCache(h http.Header) {
-	h.Set("Proxy-Cache-Control", "max-age=604800, public")
-	h.Set("Cache-Control", "no-store, must-revalidate, private, max-age=0")
-}
-
-// slurpHandler reads the post request and returns JSON with bytes
-// read and how long it took
-func (h *handlers) slurpHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/octet-stream")
-	setNoPublicCache(w.Header())
-
-	if h.enableCORS {
-		setCors((w.Header()))
-	}
-
-	_, err := io.Copy(io.Discard, r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(200)
-}
-
-// ignorableError returns true if error does not effect results of clients accessing server
-func ignorableError(err error) bool {
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, syscall.EPIPE) {
-		return true
-	}
-	if errors.Is(err, syscall.ECONNRESET) {
-		return true
-	}
-
-	switch err.Error() {
-	case "client disconnected": // from http.http2errClientDisconnected
-		return true
-	}
-	return false
 }

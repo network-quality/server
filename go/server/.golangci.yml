@@ -10,7 +10,6 @@ linters:
     - errcheck
     - exportloopref
     - exportloopref
-    - gocyclo
     - godox
     - gofmt
     - goimports

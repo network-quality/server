@@ -1,3 +1,5 @@
+// Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
+
 //go:build windows
 // +build windows
 
