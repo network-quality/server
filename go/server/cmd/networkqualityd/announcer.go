@@ -1,10 +1,15 @@
+// Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
+
 package main
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"strings"
 
 	"github.com/brutella/dnssd"
+	"github.com/network-quality/server/go/server"
 )
 
 func getNetInterfaces() []net.Interface {
@@ -28,6 +33,7 @@ func getInterfaceIPs(iface net.Interface) []net.IP {
 }
 
 func configureAnnouncer(ips []net.IP, hostName string, port int) (dnssd.Responder, dnssd.ServiceHandle, error) {
+	log.Printf("announcing %s %s", hostName, server.ServiceType)
 	// We only want to advertise on the interfaces that go with the addresses!
 	interfaces := make([]string, 0)
 
@@ -49,10 +55,14 @@ InterfacesLoop:
 			}
 		}
 	}
+
+	nameParts := strings.Split(hostName, ".")
+	if len(nameParts) > 0 {
+		hostName = nameParts[0]
+	}
 	cfg := dnssd.Config{
-		Name:   fmt.Sprintf("RPM Test Server(%d)", port),
-		Type:   "_nq._tcp",
-		Domain: "local",
+		Name:   fmt.Sprintf("go-%s", hostName),
+		Type:   server.ServiceType,
 		Host:   hostName,
 		IPs:    ips,
 		Ifaces: interfaces,
@@ -63,10 +73,12 @@ InterfacesLoop:
 	if err != nil {
 		return nil, nil, err
 	}
+
 	dnsResponder, err := dnssd.NewResponder()
 	if err != nil {
 		return nil, nil, err
 	}
+
 	dnsServiceHandle, err := dnsResponder.Add(dnsService)
 	if err != nil {
 		return nil, nil, err
