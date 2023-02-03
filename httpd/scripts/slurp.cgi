@@ -1,6 +1,6 @@
 #!/bin/bash -e
 #
-# Copyright (c) 2021 Apple Inc. Licensed under MIT License.
+# Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
 
 echo "Content-type: text/html"
 echo ""
