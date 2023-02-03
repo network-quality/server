@@ -3,6 +3,9 @@
   "urls": {
     "small_https_download_url": "https://networkquality.example.com/files/small",
     "large_https_download_url": "https://networkquality.example.com/files/large",
-    "https_upload_url": "https://networkquality.example.com/scripts/slurp.cgi"
+    "https_upload_url": "https://networkquality.example.com/scripts/slurp.cgi",
+    "small_download_url": "https://networkquality.example.com/files/small",
+    "large_download_url": "https://networkquality.example.com/files/large",
+    "upload_url": "https://networkquality.example.com/scripts/slurp.cgi"
   }
 }

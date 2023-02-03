@@ -2,7 +2,7 @@
 //  HTTPHandler.swift
 //  networkQualityd
 //
-//  Copyright (c) 2021 Apple Inc. Licensed under MIT License.
+//  Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
 
 import ArgumentParser
 import Foundation
@@ -361,6 +361,10 @@ final class HTTPHandler: ChannelInboundHandler {
 				handler!(context, reqPart)
 				return
 			} else if request.uri.unicodeScalars.starts(with: "/config".unicodeScalars) {
+				handler = handleConfig
+				handler!(context, reqPart)
+				return
+			} else if request.uri.unicodeScalars.starts(with: "/.well-known/nq".unicodeScalars) {
 				handler = handleConfig
 				handler!(context, reqPart)
 				return

@@ -14,7 +14,7 @@
 
 // NOTE: this was adopted and modified from the sample HTTP server code NIOHTTP1Server from the swift-nio codebase
 
-// Copyright (c) 2021 Apple Inc. Licensed under MIT License.
+// Copyright (c) 2021-2023 Apple Inc. Licensed under MIT License.
 
 import ArgumentParser
 import Foundation
