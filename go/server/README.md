@@ -5,7 +5,7 @@
 
 #### Using the command line
 
-1. `go build -o networkqualityd .`
+1. `make`
 1. Use the produced `networkqualityd` binary from the command line
 
 ### Running
@@ -53,6 +53,11 @@ Usage of ./networkqualityd:
   -version
         Show version
 ```
+
+#### Requirements:
+
+To use the `-create-cert` option you must have the `mkcert` binary accessible and on your `$PATH`. For more information about how to install
+`mkcert` on different operating systems, consult their [homepage](https://www.mkcert.dev/).
 
 #### Example run:
 
