@@ -6,7 +6,7 @@ The _Network Quality Server_ project was created as a place to share example ser
 
 You can find a textual description of what a server needs to implement [here](SERVER_SPEC.md)
 
-There’s also 2 complete reference server implementations, one written in [Swift](swift/README.md) and the other in [Go](go/README.md).  Also provided are configurations for HTTP server/proxy servers: [Apache Traffic Server](trafficserver/README.md), [Apache HTTPD](httpd/README.md) and [nginx](nginx/README.md).
+There’s also 2 complete reference server implementations, one written in [Swift](swift/README.md) and the other in [Go](https://github.com/network-quality/goserver).  Also provided are configurations for HTTP server/proxy servers: [Apache Traffic Server](trafficserver/README.md), [Apache HTTPD](httpd/README.md) and [nginx](nginx/README.md).
 
 All the samples require an SSL certificate to run.
 
