@@ -17,9 +17,9 @@ Sample Contents:
 {
   "version": 1,
   "urls": {
-    "small_https_download_url": "https://networkquality.example.com/api/v1/small",
-    "large_https_download_url": "https://networkquality.example.com/api/v1/large",
-    "https_upload_url": "https://networkquality.example.com/api/v1/upload"
+    "small_download_url": "https://networkquality.example.com/api/v1/small",
+    "large_download_url": "https://networkquality.example.com/api/v1/large",
+    "upload_url": "https://networkquality.example.com/api/v1/upload"
   }
 }
 ```
@@ -31,7 +31,7 @@ Description: This needs to serve a status code of 200 and 1 byte in the body. Th
 
 Method: `GET`
 
-Config file field name: `small_https_download_url`
+Config file field name: `small_download_url`
 
 Sample URL: `https://networkquality.example.com/api/v1/small`
 
@@ -42,7 +42,7 @@ Description: This needs to serve a status code of 200 and a body size of at leas
 
 Method: `GET`
 
-Config file field name: `large_https_download_url`
+Config file field name: `large_download_url`
 
 Sample URL: `https://networkquality.example.com/api/v1/large`
 
@@ -53,7 +53,7 @@ Description: This needs to handle a POST request with an arbitrary body size. No
 
 Method: POST
 
-Config file field name: `https_upload_url`
+Config file field name: `upload_url`
 
 Sample URL: `https://networkquality.example.com/api/v1/upload`
 
@@ -62,4 +62,3 @@ If the request cannot be serviced, the server should return a 429 or an appropri
 ### Other items to note:
 * There should not be any content-encoding applied to the response.
 * Redirects will be ignored and will trigger failure by the client.
-* Server should be able to respond to `HTTP/2` `PING` frames.
